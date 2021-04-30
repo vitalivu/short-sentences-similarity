@@ -65,4 +65,5 @@ target/
 *.iml
 .idea/
 venv/
+venv
 *.pkl
