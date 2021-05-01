@@ -5,9 +5,11 @@ from time import perf_counter
 
 import torch
 from quart import Quart, request
+from quart_cors import cors
 from sentence_transformers import SentenceTransformer, util
 
 app = Quart(__name__)
+app = cors(app, allow_origin="*")
 model = SentenceTransformer('paraphrase-distilroberta-base-v1')
 
 stopwords = set(
@@ -66,14 +68,29 @@ class CpuUnpickler(pickle.Unpickler):
 
 
 # on the fly
-@app.route('/search')
+@app.route('/api/search')
 async def query():
     question = request.args.get('q')
     logging.info("searching query=", question)
     return {'question': question,
             'similars': [{
+                'id':1,
                 'score': 0.6720,
-                'question': 'what cost living (monthly yearly) graduate student studying mit'
+                'title': 'what cost living (monthly yearly) graduate student studying mit',
+                'author': 'Anonymous',
+                'url': 'http://localhost:3100/question/1'
+            },{
+                'id':2,
+                'score': 0.6302,
+                'title': 'how much indian student earn studying masters degree uk',
+                'author': 'Anonymous',
+                'url': 'http://localhost:3100/question/2'
+            },{
+                'id':3,
+                'score': 0.6255,
+                'title': 'what minimum living expenses per month dubai student',
+                'author': 'Anonymous',
+                'url': 'http://localhost:3100/question/3'
             }]}
 
 
