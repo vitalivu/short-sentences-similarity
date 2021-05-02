@@ -64,67 +64,51 @@ class CpuUnpickler(pickle.Unpickler):
             return super().find_class(module, name)
 
 
-# model = SentenceTransformer('paraphrase-distilroberta-base-v1')
-
-
 # on the fly
 @app.route('/api/search')
 async def query():
     question = request.args.get('q')
-    logging.info("searching query=", question)
+    time_t1 = perf_counter()
+    similars = search_for_similar(question)
+    time_t2 = perf_counter()
+    print("Response in", "{:.4f}".format(time_t2 - time_t1), "seconds")
     return {'question': question,
-            'similars': [{
-                'id':1,
-                'score': 0.6720,
-                'title': 'what cost living (monthly yearly) graduate student studying mit',
-                'author': 'Anonymous',
-                'url': 'http://localhost:3100/question/1'
-            },{
-                'id':2,
-                'score': 0.6302,
-                'title': 'how much indian student earn studying masters degree uk',
-                'author': 'Anonymous',
-                'url': 'http://localhost:3100/question/2'
-            },{
-                'id':3,
-                'score': 0.6255,
-                'title': 'what minimum living expenses per month dubai student',
-                'author': 'Anonymous',
-                'url': 'http://localhost:3100/question/3'
-            }]}
+            'similars': similars,
+            'query_time': "{:.4f}".format(time_t2 - time_t1)}
 
+
+def search_for_similar(query):
+    print("### Query:", query)
+    query_embedding = model.encode(clean_text(query), convert_to_tensor=True)
+    cos_scores = util.pytorch_cos_sim(query_embedding, embeddings2)[0]
+    top_results = torch.topk(cos_scores, k=top_k)
+    print("Top similar queries:")
+    result = []
+    for score, idx in zip(top_results[0], top_results[1]):
+        print("({:.4f})".format(score), question2[idx])
+        result.append({
+            'id': idx.item(),
+            'title': question2[idx],
+            'score': "{:.4f}".format(score),
+            'author': 'Anonymous',
+            # 'desc': "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin a lectus blandit, aliquam magna at, rhoncus nisi. Etiam ultrices, nunc in tempus volutpat, mi nisi tincidunt risus, vel consectetur nisl lorem vel risus. Aenean turpis ligula, consectetur id bibendum ac, maximus et libero. In porta, dui non tristique posuere, dui libero viverra enim, et rutrum odio nunc lobortis libero. In imperdiet purus eu vestibulum vestibulum. Nullam nec rutrum nisl. Sed euismod est sed congue tincidunt. Proin ornare elit aliquet nulla malesuada aliquam."
+        })
+    return result
+
+
+t1 = perf_counter()
+# Load sentences & embeddings from disc
+with open('embeddings.pkl', "rb") as fIn:
+    stored_data = CpuUnpickler(fIn).load()
+    # question1 = stored_data['sentences']
+    # embeddings1 = stored_data['embeddings']
+    question2 = stored_data['sentences2']
+    embeddings2 = stored_data['embeddings2']
+t2 = perf_counter()
+
+print("Took {:.2f} seconds to import model".format(t2 - t1))
+top_k = min(10, len(embeddings2))
 
 if __name__ == "__main__":
-
-    t1 = perf_counter()
-    # Load sentences & embeddings from disc
-    with open('embeddings.pkl', "rb") as fIn:
-        stored_data = CpuUnpickler(fIn).load()
-        # question1 = stored_data['sentences']
-        # embeddings1 = stored_data['embeddings']
-        question2 = stored_data['sentences2']
-        embeddings2 = stored_data['embeddings2']
-
-    t2 = perf_counter()
-
-    print("Took {:.2f} seconds to import model".format(t2 - t1))
-
-    queries = [
-        'What is the approx annual cost of living while studying in UIC Chicago, for an Indian student?']  # example from question1
-
-    top_5 = min(5, len(embeddings2))
-
-    time_t1 = perf_counter()
-    for query in queries:
-        query_embedding = model.encode(clean_text(query), convert_to_tensor=True)
-        cos_scores = util.pytorch_cos_sim(query_embedding, embeddings2)[0]
-        top_results = torch.topk(cos_scores, k=top_5)
-        print("### Query:", query)
-        print("Top 5 most similar queries:")
-        for score, idx in zip(top_results[0], top_results[1]):
-            print("({:.4f})".format(score), question2[idx])
-
-    time_t2 = perf_counter()
-    print("Compute cosine-similarity in", "{:.4f}".format(time_t2 - time_t1), "seconds")
-
+    search_for_similar('What is the approx annual cost of living while studying in UIC Chicago, for an Indian student?')
     app.run(debug=True)
