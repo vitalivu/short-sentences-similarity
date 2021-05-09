@@ -1,5 +1,6 @@
 import io
 import logging
+import os
 import pickle
 import random
 from time import perf_counter
@@ -12,18 +13,29 @@ from quart import Quart, request
 from quart_cors import cors
 from sentence_transformers import SentenceTransformer, util, CrossEncoder
 
-config = ConfigFactory.parse_file('application.conf')
+
+if os.path.isfile('application.local.conf'):
+    config = ConfigFactory.parse_file('application.local.conf').with_fallback('application.conf')
+else:
+    config = ConfigFactory.parse_file('application.conf')
+
 rootLogger = logging.getLogger()
-rootLogger.setLevel(config.get_string('logging.root.level', 'INFO'))
+rootLogger.setLevel(config.get_string('logging.levels.root', 'INFO'))
 logger = logging.getLogger("lvnet.nlp.sssearch")
-logger.setLevel(config.get_string('logging.level', 'DEBUG'))
+logger.setLevel(config.get_string('logging.levels.lvnet.nlp.sssearch', 'DEBUG'))
 formatter = logging.Formatter(config.get_string('logging.pattern', default='%(asctime)s [%(levelname)s] %(message)s'))
-ch = logging.StreamHandler()
-ch.setFormatter(formatter)
-# logger.addHandler(ch)
-rootLogger.addHandler(ch)
+if config.get_bool('logging.appenders.console.enabled', True):
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
+    rootLogger.addHandler(ch)
+if config.get_bool('logging.appenders.file.enabled', True):
+    fh = logging.FileHandler(config.get_string("logging.appenders.file.file-name"))
+    fh.setFormatter(formatter)
+    rootLogger.addHandler(fh)
+
 app = Quart(__name__)
 app = cors(app, allow_origin="*")
+
 t0 = perf_counter()
 model = SentenceTransformer(config.get_string('ss_search.bi-encoder-model'))
 cross_encoder = CrossEncoder(config.get_string('ss_search.cross-encoder-model'))

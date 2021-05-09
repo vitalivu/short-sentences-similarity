@@ -67,3 +67,4 @@ target/
 venv/
 venv
 *.pkl
+*.local.conf
