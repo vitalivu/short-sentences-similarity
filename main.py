@@ -104,13 +104,13 @@ def search_for_similar_cross(query):
         qids = cleanidx_2_rawquestionid_map.get(cidx)
         for qid in qids:
             logger.debug(" - %s", id_2_question_map[qid])
-        result.append({
-            'id': qid,
-            'clean_text': questions[cidx],
-            'questions': [id_2_question_map[qid] for qid in qids],
-            'score': "{:.4f}".format(cos_scores[idx].item()),
-            'author': 'Anonymous',
-        })
+            result.append({
+                'id': qid,
+                'clean_text': questions[cidx],
+                'questions': [id_2_question_map[qid] for qid in qids],
+                'score': "{:.4f}".format(cos_scores[idx].item()),
+                'author': 'Anonymous',
+            })
     return result
 
 
@@ -168,11 +168,6 @@ top_100 = min(100, len(embeddings))
 
 if __name__ == "__main__":
     logger.info("Preload took %.4f seconds", t1 - t0)
-
     logger.info("Took %.4f seconds to import model", t2 - t1)
-
-    search_for_similar('What is the approx annual cost of living while studying in UIC Chicago, for an Indian student?')
-    search_for_similar_cross('What is the approx annual cost of living while studying in UIC Chicago, for an Indian student?')
-
     logger.info("SSSearch started in %.4f", perf_counter() - t0)
-    app.run(debug=False)
+    app.run(debug=config.get_bool("ss_search.debug-api"))
