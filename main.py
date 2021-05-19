@@ -1,19 +1,20 @@
 import io
 import logging
 import os
+import pickle
 import random
 from time import perf_counter
 
 import numpy as np
-import torch
-import pickle
 import pandas as pd
+import torch
+import xgboost as xgb
 from pyhocon import ConfigFactory
 from quart import Quart, request, abort
 from quart_cors import cors
 from sentence_transformers import SentenceTransformer, util, CrossEncoder
-from inlinemodel import word_match_share, cross_sim, cosine_sim, tfidf_word_match_share, clean_text
-import xgboost as xgb
+
+from inlinemodel import clean_text, extract_features
 
 if os.path.isfile('application.local.conf'):
     config = ConfigFactory.parse_file('application.local.conf').with_fallback('application.conf')
@@ -43,7 +44,7 @@ cross_encoder = CrossEncoder(config.get_string('ss_search.cross-encoder-model'))
 
 
 def suggest_question():
-    return random.choice(list(id_2_question_map.values()))
+    return random.choice(all_questions)
 
 
 @app.route('/api/suggest')
@@ -59,12 +60,15 @@ async def compare():
     qt1 = perf_counter()
     q1 = request.args.get('q1')
     q2 = request.args.get('q2')
-    x_test = pd.DataFrame()
 
-    x_test['word_match'] = [word_match_share(q1, q2)]
-    x_test['tfidf_word_match'] = [tfidf_word_match_share(q1, q2)]
-    x_test['cross_sim'] = [cross_sim(q1, q2)]
-    x_test['cosine_sim'] = [cosine_sim(q1, q2)]
+    logger.info("Comparing %s to %s", q1, q2)
+    x_test = pd.DataFrame()
+    wms, tfi, crs, cos = extract_features(clean_text(q1), clean_text(q2))
+    x_test['word_match'] = [wms]
+    x_test['tfidf_word_match'] = [tfi]
+    x_test['cross_sim'] = [crs]
+    x_test['cosine_sim'] = [cos]
+    x_test.fillna(0)
     d_test = xgb.DMatrix(x_test)
 
     y_est = bst.predict(d_test)
@@ -72,8 +76,12 @@ async def compare():
     logger.info("Response in %.4f seconds", qt2 - qt1)
     return {'question1': q1,
             'question2': q2,
-            'score': y_est.item(),
-            'query_time': "{:.4f}".format(qt2 - qt1)}
+            'scores': [{'label': 'combination', 'score': y_est.item()},
+                       {'label': 'word_match', 'score': wms},
+                       {'label': 'tfidf_wms', 'score': tfi},
+                       {'label': 'cross_sim', 'score': crs},
+                       {'label': 'cosine_sim', 'score': cos}],
+            'compare_time': "{:.4f}".format(qt2 - qt1)}
 
 
 @app.route('/api/search')
@@ -180,7 +188,7 @@ t2 = perf_counter()
 
 top_k = min(10, len(embeddings))
 top_100 = min(100, len(embeddings))
-
+all_questions = list(id_2_question_map.values())
 if __name__ == "__main__":
     logger.info("Preload took %.4f seconds", t1 - t0)
     logger.info("Took %.4f seconds to import model", t2 - t1)

@@ -1,3 +1,4 @@
+import math
 from collections import Counter
 
 import numpy  as np
@@ -49,6 +50,17 @@ eps = 5000
 words = (" ".join(train_qs)).lower().split()
 counts = Counter(words)
 weights = {word: get_weight(count) for word, count in counts.items()}
+
+
+def extract_features(q1, q2):
+    wms = word_match_share(q1, q2)
+    tfi = tfidf_word_match_share(q1, q2)
+    crs = cross_sim(q1, q2)
+    cos = cosine_sim(q1, q2)
+    return wms if not math.isnan(wms) else 0,\
+           tfi if not math.isnan(tfi) else 0,\
+           crs if not math.isnan(crs) else 0,\
+           cos if not math.isnan(cos) else 0,
 
 
 def word_match_share(q1, q2):
