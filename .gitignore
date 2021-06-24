@@ -64,7 +64,6 @@ target/
 
 *.iml
 .idea/
-venv/
-venv
+venv*
 *.pkl
 *.local.conf
