@@ -47,8 +47,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKER_HUB_USERNAME }}/oxford3k-flashcard:latest
-            ${{ secrets.DOCKER_HUB_USERNAME }}/oxford3k-flashcard:${{env.TIME_VERSION_TAG}}
+            ${{ secrets.DOCKER_HUB_USERNAME }}/short-sentences-sematic-similarity:latest
+            ${{ secrets.DOCKER_HUB_USERNAME }}/short-sentences-sematic-similarity:${{env.TIME_VERSION_TAG}}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
       - name: Image digest
